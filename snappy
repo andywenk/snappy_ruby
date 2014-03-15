@@ -1,0 +1,115 @@
+#!/usr/bin/env ruby
+
+# Simple demonstration on how to use the snappy gem written by
+# miyucy at https://github.com/miyucy/snappy
+#
+# Author: Andy Wenk andywenk@apache.org
+#
+# Version: 1.0
+#
+# Copyright 2014 Andy Wenk
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+require 'snappy'
+require 'optparse'
+require 'ostruct'
+
+options = OpenStruct.new
+
+parser = OptionParser.new do |opts|
+  opts.banner = "Usage: snappy [options] input_stream [output_file]"
+
+  opts.on("-d", "--deflate", "Deflate a given input stream") do |v|
+    options.type = "d"
+  end
+
+  opts.on("-i", "--inflate", "Inflate a given input stream") do |v|
+    options.type = "i"
+  end
+
+  opts.on("-s STREAM", "--stream STREAM", "Input stream") do |stream|
+    options.stream = stream
+  end
+
+  opts.on("-o OUTPUT", "--output", "Output file") do |output|
+    options.output = output
+  end
+
+  opts.on_tail("-h", "--help", "Show this message") do
+    puts opts
+    exit
+  end
+end
+
+def filesize file
+  size = if File.file?(file)
+     File.size(file)
+  else
+    file.bytesize
+  end
+
+  calculated_size = if size < 1000
+    "#{(size.to_f / 2**10).round(4)} KiB"
+  else
+    "#{(size.to_f / 2**20).round(4)} MiB"
+  end
+end
+
+def filename options
+  file_type = options.type == "d" ? ".sn" : ""
+  if options.output
+   return "#{options.output}#{file_type}"
+  end
+
+  "#{options.stream}-#{Time.now.to_i}#{file_type}"
+end
+
+def summary files
+  puts "\nSummary:"
+  puts "  original file size: #{files[:orig]}"
+  puts "  compressed file size: #{files[:compressed]}"
+  puts
+end
+
+def deflate_inflate stream, file_name, options
+  stream = File.open(stream, 'r').read if File.file?(stream)
+  file = File.open(file_name, 'w')
+  if options.type == "d"
+    file.write(Snappy.deflate(stream))
+  else
+    file.write(Snappy.inflate(stream))
+  end
+  file.close
+end
+
+def run options
+  stream = options.stream
+  stream_size = filesize(stream)
+  file_name = filename options
+  deflate_inflate stream, file_name, options
+  summary(orig: stream_size, compressed: filesize(file_name))
+end
+
+begin
+  parser.parse(ARGV)
+rescue OptionParser::MissingArgument => error
+  puts "Recheck your arguments please -> #{error}"
+  exit
+
+rescue OptionParser::InvalidOption => error
+  puts "There is a problem with your options -> #{error}"
+  exit
+end
+
+run options
