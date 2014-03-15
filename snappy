@@ -67,12 +67,22 @@ def filesize file
 end
 
 def filename options
-  file_type = options.type == "d" ? ".sn" : ""
+  type = options.type == "d" ? "d" : "i"
+  file_type = type == "d" ? ".sn" : ""
+
   if options.output
-   return "#{options.output}#{file_type}"
+    return "#{clean_filename(type, options.output)}#{file_type}"
   end
 
-  "#{options.stream}-#{Time.now.to_i}#{file_type}"
+  "#{clean_filename(type, options.stream)}#{timestamp(type)}#{file_type}"
+end
+
+def clean_filename type, filename
+  type == "i" ? filename.gsub(/\.sn$/, '') : filename
+end
+
+def timestamp type
+  type == "d" ? "-#{Time.now.to_i}" : ""
 end
 
 def summary files
